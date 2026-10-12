@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Fixtures - {{ club.name }}{% endblock %}
+
+{% block header %}Season Fixtures{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h3>2025/26 Season Schedule</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Home</th>
+        <th>Score</th>
+        <th>Away</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fixture in fixtures %}
+      <tr class="table-row-hover" {% if not fixture.played and loop.index0 == 0 %}style="background: rgba(0, 255, 135, 0.1); border-left: 3px solid var(--accent-color);"{% endif %}>
+        <td>{{ fixture.match_date.strftime('%Y-%m-%d') }}</td>
+        <td style="{% if fixture.home_club_id == club.id %}font-weight: bold; color: var(--accent-color);{% endif %}">{{ fixture.home_club.name }}</td>
+        <td style="font-weight: bold; text-align: center;">
+          {% if fixture.played %}
+            {{ fixture.home_score }} - {{ fixture.away_score }}
+          {% else %}
+            v
+          {% endif %}
+        </td>
+        <td style="{% if fixture.away_club_id == club.id %}font-weight: bold; color: var(--accent-color);{% endif %}">{{ fixture.away_club.name }}</td>
+        <td>
+          {% if fixture.played %}
+            {% if fixture.home_score > fixture.away_score %}
+                {% if fixture.home_club_id == club.id %}
+                    <span style="background:#00ff87; color:#000; padding:2px 8px; border-radius:12px; font-weight:bold; font-size:0.8rem;">W</span>
+                {% else %}
+                    <span style="background:#ff4444; color:#fff; padding:2px 8px; border-radius:12px; font-weight:bold; font-size:0.8rem;">L</span>
+                {% endif %}
+            {% elif fixture.away_score > fixture.home_score %}
+                {% if fixture.away_club_id == club.id %}
+                    <span style="background:#00ff87; color:#000; padding:2px 8px; border-radius:12px; font-weight:bold; font-size:0.8rem;">W</span>
+                {% else %}
+                    <span style="background:#ff4444; color:#fff; padding:2px 8px; border-radius:12px; font-weight:bold; font-size:0.8rem;">L</span>
+                {% endif %}
+            {% else %}
+                <span style="background:#ffd700; color:#000; padding:2px 8px; border-radius:12px; font-weight:bold; font-size:0.8rem;">D</span>
+            {% endif %}
+          {% else %}
+            <span style="color: #8b949e; font-style: italic;">Upcoming</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" style="text-align: center; color: #8b949e;">Loading fixtures...</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

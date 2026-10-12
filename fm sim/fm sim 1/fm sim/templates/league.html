@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}League Table - {{ league_name }}{% endblock %}
+
+{% block header %}{{ league_name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Pos</th>
+        <th>Club</th>
+        <th>Played</th>
+        <th>Won</th>
+        <th>Drawn</th>
+        <th>Lost</th>
+        <th>GF</th>
+        <th>GA</th>
+        <th>GD</th>
+        <th>Points</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in standings %}
+      <tr class="table-row-hover" style="{% if s.club_id == my_club_id %}background: rgba(0, 255, 135, 0.1); font-weight: bold;{% endif %}">
+        <td>{{ loop.index }}</td>
+        <td>{{ s.club.name }}</td>
+        <td>{{ s.played }}</td>
+        <td>{{ s.won }}</td>
+        <td>{{ s.drawn }}</td>
+        <td>{{ s.lost }}</td>
+        <td>{{ s.gf }}</td>
+        <td>{{ s.ga }}</td>
+        <td>{{ s.gd }}</td>
+        <td class="text-accent">{{ s.points }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="margin-top: 15px; font-size: 0.9rem; color: #8b949e;">* Teams are currently sorted by Pre-Season Rating until matches begin.</p>
+</div>
+{% endblock %}

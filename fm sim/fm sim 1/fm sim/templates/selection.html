@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Select Your Club - FM Sim 25/26</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+      .selection-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+      .league-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 10px;
+        overflow-x: auto;
+      }
+      .tab-btn {
+        background: transparent;
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        padding: 10px 20px;
+        font-family: var(--font-heading);
+        font-size: 1.2rem;
+        cursor: pointer;
+        border-radius: 4px;
+        white-space: nowrap;
+      }
+      .tab-btn.active {
+        background: rgba(0, 255, 135, 0.1);
+        color: var(--accent-color);
+        border-color: var(--accent-color);
+      }
+      .league-content {
+        display: none;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+      }
+      .league-content.active {
+        display: grid;
+      }
+      .club-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .club-card:hover, .club-card.selected {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 15px rgba(0, 255, 135, 0.2);
+        transform: translateY(-2px);
+      }
+      .club-card.selected {
+        background: rgba(0, 255, 135, 0.05);
+      }
+      .club-name {
+        font-family: var(--font-heading);
+        font-size: 1.5rem;
+        color: var(--accent-color);
+        margin-bottom: 15px;
+        font-weight: bold;
+      }
+      .club-stat {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        font-size: 0.9rem;
+      }
+      .start-btn {
+        display: none;
+        background: var(--accent-color);
+        color: #000;
+        border: none;
+        padding: 15px 40px;
+        font-family: var(--font-heading);
+        font-size: 1.5rem;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 40px auto 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .start-btn.visible {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="selection-container">
+      <div style="text-align: center; margin-bottom: 40px;">
+        <h1 style="color: var(--accent-color); font-size: 3rem; text-shadow: 0 0 20px rgba(0,255,135,0.4); margin-bottom: 10px;">Select Your Club</h1>
+        <p style="color: #8b949e; font-size: 1.2rem;">Choose your managerial destination for the 25/26 season</p>
+      </div>
+
+      <div class="league-tabs">
+        {% for league_name in leagues.keys() %}
+          <button class="tab-btn {% if loop.first %}active{% endif %}" onclick="showLeague('{{ league_name|replace(' ', '-') }}', event)">{{ league_name }}</button>
+        {% endfor %}
+      </div>
+
+      <form id="selection-form" action="{{ url_for('main.select_team') }}" method="POST">
+        <input type="hidden" name="club_id" id="selected-club-id" value="">
+        
+        {% for league_name, league_clubs in leagues.items() %}
+        <div id="{{ league_name|replace(' ', '-') }}" class="league-content {% if loop.first %}active{% endif %}">
+          {% for club in league_clubs %}
+          <div class="club-card" onclick="selectClub('{{ club.id }}', this)">
+            <div class="club-name">{{ club.name }}</div>
+            {% if session.get('club_id') == club.id %}
+            <div style="background: var(--accent-color); color: #000; font-size: 0.8rem; padding: 2px 8px; border-radius: 12px; display: inline-block; margin-bottom: 10px; font-weight: bold;">
+              Currently Managing
+            </div>
+            {% endif %}
+            <div class="club-stat">
+              <span>League Position</span>
+              <strong style="color: #fff;">{{ club.current_position }}</strong>
+            </div>
+            <div class="club-stat">
+              <span>Points</span>
+              <strong style="color: #ffd700;">{{ club.current_points }}</strong>
+            </div>
+            <div class="club-stat">
+              <span>Transfer Budget</span>
+              <strong style="color: var(--accent-color);">€{{ "{:,.0f}".format(club.transfer_budget) }}</strong>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+
+        <button type="submit" id="start-btn" class="start-btn">Start Managing</button>
+      </form>
+    </div>
+
+    <script>
+      function showLeague(leagueId, event) {
+        document.querySelectorAll('.league-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(leagueId).classList.add('active');
+        if (event && event.target) {
+            event.target.classList.add('active');
+        }
+      }
+
+      function selectClub(clubId, element) {
+        document.querySelectorAll('.club-card').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        document.getElementById('selected-club-id').value = clubId;
+        document.getElementById('start-btn').classList.add('visible');
+      }
+    </script>
+  </body>
+</html>

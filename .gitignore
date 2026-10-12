@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+
+# Secrets
+.env
+.env.*
+
+# Runtime data (recreated on first run)
+*.db
+*.sqlite3
+
+# Build output
+build/
+dist/
+*.egg-info/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Finances - {{ club.name }}{% endblock %}
+
+{% block header %}Club Finances & Board{% endblock %}
+
+{% block content %}
+<div style="display: flex; gap: 20px;">
+  <!-- Financial Summary -->
+  <div class="card" style="flex: 2;">
+    <h3>Financial Summary</h3>
+    
+    <div class="stats-grid">
+      <div class="stat-box" style="border-left: 4px solid var(--accent-color);">
+        <div class="stat-label">Transfer Budget remaining</div>
+        <div class="stat-value" style="font-size: 2rem;">€{{ "{:,.0f}".format(club.transfer_budget) }}</div>
+      </div>
+      
+      <div class="stat-box" style="border-left: 4px solid #ffd700;">
+        <div class="stat-label">Current Weekly Wage Bill</div>
+        <div class="stat-value" style="font-size: 2rem; color: #ffd700;">€{{ "{:,.0f}".format(weekly_wages) }} <span style="font-size:1rem;">/ week</span></div>
+      </div>
+      
+      <div class="stat-box" style="border-left: 4px solid #ff4444;">
+        <div class="stat-label">Available Wage Budget</div>
+        <div class="stat-value" style="font-size: 2rem; color: #ff4444;">€{{ "{:,.0f}".format(club.wage_budget) }} <span style="font-size:1rem;">/ week</span></div>
+      </div>
+    </div>
+    
+    <h3 style="margin-top: 30px;">Wage Budget Analyzer</h3>
+    <div style="width: 100%; background: var(--bg-color); height: 20px; border-radius: 10px; border: 1px solid var(--border-color); overflow: hidden; position: relative;">
+      <!-- Quick percentage calculation -->
+      {% set pct = (weekly_wages / club.wage_budget * 100) if club.wage_budget > 0 else 100 %}
+      <div style="height: 100%; width: {{ pct }}%; background: {% if pct > 90 %}#ff4444{% elif pct > 75 %}#ffd700{% else %}var(--accent-color){% endif %}; transition: width 1s;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 0.9rem; color: #8b949e;">
+      <span>€0</span>
+      <span>{{ "%.1f"|format(pct) }}% Utilized</span>
+      <span>€{{ "{:,.0f}".format(club.wage_budget) }} (Max)</span>
+    </div>
+
+  </div>
+
+  <!-- Board Confidence & Inbox -->
+  <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
+    
+    <div class="card">
+      <h3>Board Confidence</h3>
+      <div style="text-align: center;">
+        <div style="font-size: 3rem; color: var(--accent-color); font-weight: bold; margin: 10px 0;">B+</div>
+        <p style="color: #8b949e;">The board is generally satisfied with your management so far.</p>
+        
+        <div style="text-align: left; margin-top: 20px;">
+          <div style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px;">
+              <span>Match Performance</span> <strong class="text-accent">A-</strong>
+            </div>
+            <div style="width: 100%; background: #000; height: 6px; border-radius: 3px;"><div style="width: 85%; height: 100%; background: var(--accent-color);"></div></div>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px;">
+              <span>Financial Control</span> <strong style="color: #ffd700;">B</strong>
+            </div>
+            <div style="width: 100%; background: #000; height: 6px; border-radius: 3px;"><div style="width: 65%; height: 100%; background: #ffd700;"></div></div>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px;">
+              <span>Squad Harmony</span> <strong class="text-accent">A+</strong>
+            </div>
+            <div style="width: 100%; background: #000; height: 6px; border-radius: 3px;"><div style="width: 95%; height: 100%; background: var(--accent-color);"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card" style="flex-grow: 1;">
+      <h3>Board Inbox</h3>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 6px; border-left: 3px solid var(--accent-color);">
+          <div style="font-weight: bold; margin-bottom: 5px;">Welcome to the Club</div>
+          <div style="font-size: 0.9rem; color: #8b949e;">The board is thrilled to have you onboard. We expect you to challenge for the {{ club.board_ambition }}.</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 6px; border-left: 3px solid #8b949e;">
+          <div style="font-weight: bold; margin-bottom: 5px;">Transfer Window Open</div>
+          <div style="font-size: 0.9rem; color: #8b949e;">You have €{{ "{:,.0f}".format(club.transfer_budget) }} to strengthen the squad. Spend wisely.</div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</div>
+{% endblock %}

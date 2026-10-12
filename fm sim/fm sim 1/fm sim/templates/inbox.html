@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Inbox - {{ club.name }}{% endblock %}
+
+{% block header %}Manager Inbox{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="inbox-list" style="display: flex; flex-direction: column; gap: 15px;">
+  {% for message in messages %}
+  <div class="inbox-item {% if not message.is_read %}unread{% endif %}" 
+       onclick="toggleMessage({{ message.id }})" style="background: rgba(255,255,255,0.05); border-radius: 6px;">
+      
+      <!-- Message header (always visible) -->
+      <div style="display:flex; justify-content:space-between; 
+      align-items:center; padding:14px 16px; cursor:pointer;
+      border-left: 3px solid {% if not message.is_read %}#00ff87{% else %}#30363d{% endif %};">
+          
+          <div style="display:flex; align-items:center; gap:12px;">
+              {% if not message.is_read %}
+              <span style="width:8px; height:8px; background:#00ff87; 
+              border-radius:50%; display:inline-block; flex-shrink:0;"></span>
+              {% else %}
+              <span style="width:8px; height:8px; background:transparent; 
+              border-radius:50%; display:inline-block; flex-shrink:0;"></span>
+              {% endif %}
+              
+              <div>
+                  <div style="font-weight:{% if not message.is_read %}bold{% else %}normal{% endif %}; 
+                  font-family: var(--font-heading); font-size:1rem; {% if not message.is_read %}color: #00ff87;{% endif %}">
+                      {{ message.subject }}
+                  </div>
+                  <div style="font-size:0.75rem; color:#8b949e; margin-top:2px;">
+                      {{ message.date_sent.strftime('%d %b %Y') if message.date_sent else 'Recent' }}
+                      · From: Board of Directors
+                  </div>
+              </div>
+          </div>
+          
+          <span id="arrow-{{ message.id }}" 
+          style="color:#8b949e; font-size:0.8rem; 
+          transition: transform 0.2s;">▼</span>
+      </div>
+      
+      <!-- Message body (hidden by default, expands on click) -->
+      <div id="body-{{ message.id }}" 
+      style="display:none; padding:0 16px 16px 40px; 
+      color:#c9d1d9; font-family: var(--font-stats); 
+      font-size:0.9rem; line-height:1.6; 
+      border-left:3px solid #30363d;
+      border-bottom: 1px solid #30363d; border-radius: 0 0 6px 0;">
+          {{ message.message }}
+      </div>
+  </div>
+  {% endfor %}
+  </div>
+</div>
+
+<script>
+function toggleMessage(id) {
+    const body = document.getElementById('body-' + id);
+    const arrow = document.getElementById('arrow-' + id);
+    
+    if(body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.style.transform = 'rotate(180deg)';
+        // Mark as read
+        fetch('/api/inbox/read/' + id, {method: 'POST'});
+        // Update unread dot
+        const item = body.closest('.inbox-item');
+        if (item.classList.contains('unread')) {
+            item.classList.remove('unread');
+            const dot = item.querySelector('span[style*="00ff87"]');
+            if (dot) dot.style.background = 'transparent';
+            const headerBorder = item.children[0];
+            headerBorder.style.borderLeftColor = '#30363d';
+            const title = item.querySelector('div[style*="font-weight:"]');
+            if (title) {
+                title.style.fontWeight = 'normal';
+                title.style.color = 'var(--text-color)';
+            }
+            
+            // Optional: update badge if exists
+            const badge = document.getElementById('unread-badge');
+            if(badge) {
+                let current = parseInt(badge.innerText);
+                if(current > 0) {
+                    badge.innerText = current - 1;
+                    if(current - 1 === 0) badge.style.display = 'none';
+                }
+            }
+        }
+    } else {
+        body.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+    }
+}
+</script>
+{% endblock %}

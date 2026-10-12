@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Select Lineup - {{ match.home_club.name }} vs {{ match.away_club.name }}{% endblock %}
+
+{% block header %}Team Selection{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2 style="margin: 0; color: var(--accent-color);">{{ match.home_club.name }} vs {{ match.away_club.name }}</h2>
+            <p style="margin: 5px 0 0 0; color: #8b949e;">Select your Starting XI for the upcoming match.</p>
+        </div>
+        <div style="text-align: right;">
+            <label style="display: block; font-size: 0.9rem; color: #8b949e; margin-bottom: 5px;">Formation</label>
+            <select id="formation-select" style="padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+                <option value="4-3-3">4-3-3</option>
+                <option value="4-4-2">4-4-2</option>
+                <option value="4-2-3-1">4-2-3-1</option>
+                <option value="3-5-2">3-5-2</option>
+                <option value="4-5-1">4-5-1</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div style="display: flex; gap: 20px; align-items: flex-start;">
+    <!-- Starting XI Column -->
+    <div style="flex: 1;">
+        <div class="card" style="border-top: 4px solid var(--accent-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Starting XI</h3>
+                <span id="counter-box" style="background: #0d1117; padding: 4px 12px; border-radius: 20px; font-weight: bold; border: 1px solid var(--border-color);">
+                    <span id="selected-count">0</span> / 11
+                </span>
+            </div>
+            <div id="starting-xi-list" style="display: flex; flex-direction: column; gap: 10px; min-height: 400px;">
+                <!-- Starting players moved here by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Bench / Player Pool Column -->
+    <div style="flex: 1.5;">
+        <div class="card" style="border-top: 4px solid #8b949e;">
+            <h3 style="margin-bottom: 15px;">Available Players</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                {% for pos_group, group_players in players_by_position.items() %}
+                <div>
+                    <h4 style="color: #8b949e; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; margin-bottom: 10px; border-bottom: 1px solid #30363d; padding-bottom: 5px;">
+                        {% if pos_group == 'GK' %}Goalkeepers
+                        {% elif pos_group == 'DEF' %}Defenders
+                        {% elif pos_group == 'MID' %}Midfielders
+                        {% elif pos_group == 'ATT' %}Attackers
+                        {% endif %}
+                    </h4>
+                    <div id="pool-{{ pos_group }}" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                        <!-- Player cards rendered here by JS -->
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kit Colors Selection -->
+<div style="margin: 20px 0; padding: 16px; background: #1c2128; border-radius: 8px;">
+    <h3 style="color: #00ff87; margin-top:0;">Kit Colors</h3>
+    <div style="display: flex; gap: 40px; align-items: center;">
+        <div>
+            <label style="color: #8b949e; font-size:0.85rem;">Your Kit Color</label>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:6px;">
+                <input type="color" id="home-kit-color" value="{{ session.get('home_kit_color', '#0066CC') }}"
+                style="width:50px; height:36px; border:none; cursor:pointer; border-radius:4px;">
+                <span id="home-kit-preview" style="width:30px; height:30px; border-radius:50%; border:2px solid #fff;
+                background: {{ session.get('home_kit_color', '#0066CC') }};"></span>
+            </div>
+        </div>
+        <div>
+            <label style="color: #8b949e; font-size:0.85rem;">Opponent Kit Color</label>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:6px;">
+                <input type="color" id="away-kit-color" value="{{ session.get('away_kit_color', '#CC0000') }}"
+                style="width:50px; height:36px; border:none; cursor:pointer; border-radius:4px;">
+                <span id="away-kit-preview" style="width:30px; height:30px; border-radius:50%; border:2px solid #fff;
+                background: {{ session.get('away_kit_color', '#CC0000') }};"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Controls and Warnings -->
+<div class="card" style="margin-top: 20px; position: sticky; bottom: 20px; z-index: 100; box-shadow: 0 -10px 20px rgba(0,0,0,0.3);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div id="warnings" style="color: #ff4444; font-weight: bold; font-size: 0.9rem;">
+            <!-- Validation warnings here -->
+        </div>
+        <button id="confirm-btn" style="background: var(--accent-color); color: #000; border: none; padding: 12px 30px; font-weight: bold; font-family: var(--font-heading); font-size: 1.2rem; border-radius: 4px; transition: 0.3s;" disabled>
+            Confirm Lineup & Kick Off
+        </button>
+    </div>
+</div>
+
+<style>
+    .player-card {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        transition: 0.2s transform, 0.2s border-color;
+    }
+    .player-card:hover {
+        transform: translateY(-2px);
+        border-color: #8b949e;
+    }
+    .player-card.selected {
+        border-color: var(--accent-color);
+        background: rgba(0, 255, 135, 0.05);
+    }
+    .pos-badge {
+        font-size: 0.7rem;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: #0d1117;
+        color: #8b949e;
+    }
+    .overall-badge {
+        font-weight: bold;
+        color: var(--accent-color);
+    }
+</style>
+
+<script>
+const allPlayers = {{ all_players | tojson }};
+const matchId = {{ match.id }};
+let selected = new Set();
+
+// Auto-select best 11 by default on page load
+function autoSelectBest11() {
+    const desiredPositions = ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
+    const used = new Set();
+    
+    // First, try to fill exact positions with highest overall
+    desiredPositions.forEach(pos => {
+        const candidates = allPlayers
+            .filter(p => !used.has(p.id) && p.position === pos)
+            .sort((a,b) => b.overall - a.overall);
+        
+        if (candidates.length > 0) {
+            selected.add(candidates[0].id);
+            used.add(candidates[0].id);
+        }
+    });
+    
+    // If still less than 11 (e.g. missing certain positions), fill with best remaining
+    if (selected.size < 11) {
+        allPlayers
+            .filter(p => !selected.has(p.id))
+            .sort((a,b) => b.overall - a.overall)
+            .slice(0, 11 - selected.size)
+            .forEach(p => selected.add(p.id));
+    }
+    
+    renderAll();
+}
+
+function togglePlayer(playerId) {
+    if (selected.has(playerId)) {
+        selected.delete(playerId);
+    } else {
+        const player = allPlayers.find(p => p.id === playerId);
+        
+        // Rules
+        if (player.position === 'GK') {
+            // Only 1 GK in starting 11
+            const existingGK = allPlayers.find(p => selected.has(p.id) && p.position === 'GK');
+            if (existingGK) {
+                selected.delete(existingGK.id);
+            }
+        }
+        
+        if (selected.size >= 11) {
+            alert('Starting XI is full! Remove a player first.');
+            return;
+        }
+        
+        selected.add(playerId);
+    }
+    renderAll();
+}
+
+function renderAll() {
+    const startingList = document.getElementById('starting-xi-list');
+    startingList.innerHTML = '';
+    
+    // Clear pools
+    ['GK', 'DEF', 'MID', 'ATT'].forEach(group => {
+        const el = document.getElementById('pool-' + group);
+        if (el) el.innerHTML = '';
+    });
+    
+    // Sort all players by overall for consistent rendering
+    const sortedAll = [...allPlayers].sort((a,b) => b.overall - a.overall);
+    
+    sortedAll.forEach(p => {
+        const isSelected = selected.has(p.id);
+        const card = createPlayerCard(p, isSelected);
+        
+        if (isSelected) {
+            startingList.appendChild(card);
+        } else {
+            const group = getPosGroup(p.position);
+            const pool = document.getElementById('pool-' + group);
+            if (pool) pool.appendChild(card);
+        }
+    });
+    
+    updateUI();
+}
+
+function createPlayerCard(p, isSelected) {
+    const div = document.createElement('div');
+    div.className = 'player-card' + (isSelected ? ' selected' : '');
+    div.onclick = () => togglePlayer(p.id);
+    div.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="pos-badge">${p.position}</span>
+            <span style="font-weight: 500;">${p.name}</span>
+        </div>
+        <span class="overall-badge">${p.overall}</span>
+    `;
+    return div;
+}
+
+function getPosGroup(pos) {
+    if (pos === 'GK') return 'GK';
+    if (['RB', 'CB', 'LB'].includes(pos)) return 'DEF';
+    if (['CDM', 'CM', 'CAM'].includes(pos)) return 'MID';
+    return 'ATT';
+}
+
+function updateUI() {
+    // Update counter
+    const count = selected.size;
+    document.getElementById('selected-count').textContent = count;
+    
+    // Validate
+    const selectedPlayers = allPlayers.filter(p => selected.has(p.id));
+    const hasGK = selectedPlayers.some(p => p.position === 'GK');
+    const defCount = selectedPlayers.filter(p => ['RB', 'CB', 'LB'].includes(p.position)).length;
+    const midCount = selectedPlayers.filter(p => ['CDM', 'CM', 'CAM'].includes(p.position)).length;
+    const attCount = selectedPlayers.filter(p => ['LW', 'RW', 'ST'].includes(p.position)).length;
+    
+    const warnings = [];
+    if (!hasGK) warnings.push('⚠️ Missing GK');
+    if (defCount < 3) warnings.push('⚠️ Def < 3');
+    if (midCount < 2) warnings.push('⚠️ Mid < 2');
+    if (attCount < 1) warnings.push('⚠️ Att < 1');
+    if (count !== 11) warnings.push(`⚠️ XI = ${count}/11`);
+    
+    const warningsDiv = document.getElementById('warnings');
+    warningsDiv.innerHTML = warnings.join(' | ');
+    
+    const confirmBtn = document.getElementById('confirm-btn');
+    const isValid = warnings.length === 0;
+    confirmBtn.disabled = !isValid;
+    confirmBtn.style.opacity = isValid ? '1' : '0.4';
+    confirmBtn.style.cursor = isValid ? 'pointer' : 'not-allowed';
+}
+
+document.getElementById('confirm-btn').onclick = function() {
+    if (selected.size !== 11) return;
+    
+    const formation = document.getElementById('formation-select').value;
+    const benchIds = allPlayers
+        .filter(p => !selected.has(p.id))
+        .map(p => p.id);
+        
+    fetch(window.location.pathname, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            starting_11: Array.from(selected),
+            bench: benchIds,
+            formation: formation,
+            home_kit_color: document.getElementById('home-kit-color').value,
+            away_kit_color: document.getElementById('away-kit-color').value
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.redirect) window.location.href = data.redirect;
+    });
+};
+
+// Live preview
+document.getElementById('home-kit-color').addEventListener('input', function() {
+    document.getElementById('home-kit-preview').style.background = this.value;
+});
+document.getElementById('away-kit-color').addEventListener('input', function() {
+    document.getElementById('away-kit-preview').style.background = this.value;
+});
+
+// Start
+autoSelectBest11();
+</script>
+{% endblock %}

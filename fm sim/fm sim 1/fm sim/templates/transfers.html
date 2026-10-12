@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Transfers - {{ club.name }}{% endblock %}
+
+{% block header %}Transfer Market{% endblock %}
+
+{% block content %}
+<div style="display: flex; gap: 20px;">
+  <!-- Search tools -->
+  <div class="card" style="flex: 1; max-width: 300px;">
+    <h3>Player Search</h3>
+    <input type="text" id="search-query" placeholder="Enter player name..." style="width: 100%; padding: 10px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); font-family: var(--font-stats); margin-bottom: 15px; box-sizing: border-box;">
+    
+    <select id="search-pos" style="width: 100%; padding: 10px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); font-family: var(--font-stats); margin-bottom: 15px;">
+      <option value="">Any Position</option>
+      <option value="ST">ST</option>
+      <option value="LW">LW</option>
+      <option value="RW">RW</option>
+      <option value="CAM">CAM</option>
+      <option value="CM">CM</option>
+      <option value="CDM">CDM</option>
+      <option value="CB">CB</option>
+      <option value="LB">LB</option>
+      <option value="RB">RB</option>
+      <option value="GK">GK</option>
+    </select>
+    
+    <button onclick="performSearch()" style="width: 100%; background: var(--border-color); color: var(--text-color); border: none; padding: 10px; font-weight: bold; cursor: pointer; transition: 0.2s;">Search Database</button>
+  </div>
+
+  <!-- Results -->
+  <div class="card" style="flex: 2;">
+    <h3>Search Results</h3>
+    <table id="results-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Pos</th>
+          <th>Age</th>
+          <th>OVR</th>
+          <th>Club</th>
+          <th>Est. Value</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="results-body">
+        <tr><td colspan="7" style="text-align: center; color: #8b949e;">Enter search criteria and hit search.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal for Bidding -->
+<div id="bid-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center;">
+  <div class="card" style="width: 400px; text-align: center;">
+    <h3 id="bid-title">Make a Bid</h3>
+    <p style="color: #8b949e;">Your Remaining Budget: <strong class="text-accent">€{{ "{:,.0f}".format(club.transfer_budget) }}</strong></p>
+    <div style="font-size: 1.5rem; margin: 20px 0;">€ <span id="bid-amount-display">50,000,000</span></div>
+    <input type="range" id="bid-slider" min="1000000" max="{{ club.transfer_budget }}" step="1000000" value="50000000" style="width: 100%; margin-bottom: 20px;">
+    
+    <div id="bid-feedback" style="margin-bottom: 20px; font-weight: bold;"></div>
+    
+    <div style="display: flex; gap: 10px;">
+      <button onclick="closeBidModal()" style="flex: 1; padding: 10px; background: transparent; color: #fff; border: 1px solid var(--border-color); cursor: pointer;">Cancel</button>
+      <button id="submit-bid-btn" onclick="submitBid()" style="flex: 1; padding: 10px; background: var(--accent-color); color: #000; border: none; font-weight: bold; cursor: pointer;">Submit Offer</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let activePlayer = null;
+  
+  async function performSearch() {
+    const q = document.getElementById("search-query").value;
+    const pos = document.getElementById("search-pos").value;
+    
+    const res = await fetch(`/api/transfer/search?q=${q}&pos=${pos}`);
+    const data = await res.json();
+    
+    const tbody = document.getElementById("results-body");
+    tbody.innerHTML = '';
+    
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No players found.</td></tr>';
+      return;
+    }
+    
+    data.forEach(p => {
+      const tr = document.createElement("tr");
+      tr.className = "table-row-hover";
+      tr.innerHTML = `
+        <td style="font-weight: bold;">${p.name}</td>
+        <td class="text-accent">${p.position}</td>
+        <td>${p.age}</td>
+        <td>${p.overall}</td>
+        <td>${p.club}</td>
+        <td>€${new Intl.NumberFormat().format(p.value)}</td>
+        <td><button onclick='openBidModal(${JSON.stringify(p)})' style="background: var(--border-color); color: #fff; border: none; padding: 5px 10px; cursor: pointer;">Bid</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  const bidModal = document.getElementById("bid-modal");
+  const bidSlider = document.getElementById("bid-slider");
+  const bidDisplay = document.getElementById("bid-amount-display");
+  const bidFeedback = document.getElementById("bid-feedback");
+  
+  bidSlider.addEventListener("input", (e) => {
+    bidDisplay.innerText = new Intl.NumberFormat().format(e.target.value);
+  });
+
+  function openBidModal(player) {
+    activePlayer = player;
+    document.getElementById("bid-title").innerText = `Bid for ${player.name}`;
+    bidSlider.value = player.value;
+    bidDisplay.innerText = new Intl.NumberFormat().format(player.value);
+    bidFeedback.innerText = '';
+    bidFeedback.style.color = 'inherit';
+    bidModal.style.display = 'flex';
+  }
+  
+  function closeBidModal() {
+    bidModal.style.display = 'none';
+  }
+  
+  async function submitBid() {
+    if (!activePlayer) return;
+    
+    const submitBtn = document.getElementById('submit-bid-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Processing...";
+    submitBtn.style.opacity = "0.6";
+    
+    const amount = parseInt(bidSlider.value);
+    try {
+      const res = await fetch("/api/transfer/bid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player_id: activePlayer.id, amount: amount })
+      });
+      const result = await res.json();
+      
+      bidFeedback.innerText = result.message;
+      
+      if (result.result === 'accepted') {
+        bidFeedback.style.color = '#00ff87';
+        // Update budget display
+        if (result.new_budget !== undefined) {
+          const budgetEl = document.querySelector(".text-accent");
+          if (budgetEl) budgetEl.innerText = `€${new Intl.NumberFormat().format(result.new_budget)}`;
+        }
+        submitBtn.innerText = "✅ Signed!";
+        submitBtn.style.background = '#00ff87';
+        setTimeout(() => {
+          closeBidModal();
+          performSearch(); // Refresh list — player now shows new club
+          // Reset button for next use
+          submitBtn.style.background = '';
+          submitBtn.style.opacity = '';
+          submitBtn.innerText = "Submit Offer";
+          submitBtn.disabled = false;
+        }, 2000);
+        return; // Exit early — button re-enabled after timeout above
+      } else if (result.result === 'counter') {
+        bidFeedback.style.color = '#ffd700';
+        // Update slider to counter amount so user can accept or go higher
+        const counter = parseInt(result.counter_amount);
+        bidSlider.min = counter;
+        bidSlider.value = counter;
+        bidDisplay.innerText = new Intl.NumberFormat().format(counter);
+      } else if (result.result === 'rejected') {
+        bidFeedback.style.color = '#ff4444';
+      } else if (result.result === 'error') {
+        bidFeedback.style.color = '#ff4444';
+      }
+    } catch (err) {
+      bidFeedback.style.color = '#ff4444';
+      bidFeedback.innerText = "Network error submitting bid. Please try again.";
+    } finally {
+      // Always re-enable for counter/rejected/error paths
+      submitBtn.disabled = false;
+      submitBtn.innerText = "Submit Offer";
+      submitBtn.style.opacity = "";
+    }
+  }
+</script>
+{% endblock %}

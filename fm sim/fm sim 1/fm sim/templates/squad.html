@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Squad - {{ club.name }}{% endblock %}
+
+{% block header %}First Team Squad{% endblock %}
+
+{% block content %}
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Pos</th>
+        <th>Player Name</th>
+        <th>Nat</th>
+        <th>Age</th>
+        <th>OVR</th>
+        <th>PAC</th>
+        <th>SHO</th>
+        <th>PAS</th>
+        <th>DRI</th>
+        <th>DEF</th>
+        <th>PHY</th>
+        <th>Wage</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for player in players %}
+      <tr class="table-row-hover">
+        <td style="font-weight:bold; color: var(--accent-color);">{{ player.position }}</td>
+        <td>{{ player.name }}{% if player.is_captain %} <span title="Captain" style="color: gold; font-weight: bold;">(C)</span>{% endif %}</td>
+        <td>{{ player.nationality }}</td>
+        <td>{{ player.age }}</td>
+        <td style="font-weight:bold;">{{ player.overall }}</td>
+        <td>{{ player.pace }}</td>
+        <td>{{ player.shooting }}</td>
+        <td>{{ player.passing }}</td>
+        <td>{{ player.dribbling }}</td>
+        <td>{{ player.defending }}</td>
+        <td>{{ player.physical }}</td>
+        <td>€{{ "{:,.0f}".format(player.wage_per_week) }}/w</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,952 @@
+{% extends "base.html" %}
+
+{% block title %}Match Day - {{ match.home_club.name }} vs {{ match.away_club.name }}{% endblock %}
+
+{% block header %}Live Match{% endblock %}
+
+{% block content %}
+<div style="display: flex; gap: 20px;">
+  
+  <!-- Canvas and Scoreboard -->
+  <div class="card" style="flex: 2; position: relative; padding: 0; overflow: hidden;">
+    <div id="scoreboard" style="position:absolute; top:10px; 
+    left:50%; transform:translateX(-50%); z-index:10;
+    border-radius:6px; overflow:hidden; min-width:380px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);">
+        
+        <!-- League bar at top -->
+        <div id="league-bar" style="padding:3px 12px; 
+        font-size:0.65rem; font-weight:900; letter-spacing:2px;
+        text-align:center; text-transform:uppercase;">
+            {{ match.home_club.league }}
+        </div>
+        
+        <!-- Main score row -->
+        <div style="display:flex; align-items:center; 
+        justify-content:center; gap:0; padding:8px 16px;">
+            
+            <!-- Home team -->
+            <div style="display:flex; align-items:center; 
+            gap:8px; min-width:130px; justify-content:flex-end;">
+                <span id="home-name" style="font-size:1rem; 
+                font-weight:900; text-transform:uppercase; 
+                letter-spacing:1px;">
+                    {{ match.home_club.name }}
+                </span>
+            </div>
+            
+            <!-- Score -->
+            <div style="display:flex; align-items:center; 
+            gap:6px; padding:4px 16px; margin:0 8px;
+            border-radius:4px; background:rgba(0,0,0,0.3);">
+                <span id="score-home" style="font-size:1.8rem; 
+                font-weight:900; min-width:24px; 
+                text-align:center;">0</span>
+                <span style="font-size:1.2rem; opacity:0.7;">-</span>
+                <span id="score-away" style="font-size:1.8rem; 
+                font-weight:900; min-width:24px; 
+                text-align:center;">0</span>
+            </div>
+            
+            <!-- Away team -->
+            <div style="display:flex; align-items:center; 
+            gap:8px; min-width:130px; justify-content:flex-start;">
+                <span id="away-name" style="font-size:1rem; 
+                font-weight:900; text-transform:uppercase; 
+                letter-spacing:1px;">
+                    {{ match.away_club.name }}
+                </span>
+            </div>
+        </div>
+        
+        <!-- Clock bar at bottom -->
+        <div style="text-align:center; padding:3px; 
+        background:rgba(0,0,0,0.2); font-size:0.8rem; 
+        font-weight:bold; letter-spacing:1px;">
+            <span id="match-clock">00:00</span>
+        </div>
+    </div>
+    
+    <canvas id="pitch" width="800" height="520" style="background: #1e3f20; width: 100%; height: auto; display: block; border-bottom: 2px solid var(--border-color);"></canvas>
+    
+    <div id="goal-flash" style="position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,255,135,0.4); z-index: 5; display: none; pointer-events: none; justify-content: center; align-items: center;">
+      <h1 style="font-size: 5rem; text-shadow: 0 0 20px #000; animation: pulse 1s infinite;">GOAL!</h1>
+    </div>
+  </div>
+
+  <!-- Commentary Box -->
+  <div class="card" style="flex: 1; display: flex; flex-direction: column; max-height: 520px;">
+    <h3 style="margin-top:0;">Match Events</h3>
+    <div id="commentary-box" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 10px; background: #0d1117; border-radius: 4px; padding: 10px;">
+      <div style="color: #8b949e; font-style: italic;">Awaiting Kickoff...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tactical Pause Modal -->
+<div id="tactics-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center;">
+  <div class="card" style="width: 500px; max-width: 90%; text-align: center;">
+    <h2 id="tactics-title" style="color: var(--accent-color);">Tactical Pause</h2>
+    <p id="tactics-desc">Make changes to your team setup!</p>
+    
+    <div style="margin: 20px 0; text-align: left;">
+      <label style="display: block; margin-bottom: 5px; color: #8b949e;">Formation</label>
+      <select style="width: 100%; padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+        <option>4-3-3</option>
+        <option>4-4-2</option>
+        <option>4-2-3-1</option>
+        <option>3-5-2</option>
+        <option>5-3-2</option>
+      </select>
+    </div>
+
+    <div style="margin: 20px 0; text-align: left;">
+      <label style="display: block; margin-bottom: 5px; color: #8b949e;">Mentality</label>
+      <select style="width: 100%; padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+        <option>Balanced</option>
+        <option>Attacking</option>
+        <option>Defensive</option>
+      </select>
+    </div>
+
+    <div style="margin: 20px 0; text-align: left;">
+      <label style="display: block; margin-bottom: 5px; color: #8b949e;">Substitutions (Max 3)</label>
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <select class="player-off-select" style="flex: 1; padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+          <option value="">Player Off</option>
+          {% for player in starting_11 %}
+          <option value="{{ player.id }}">{{ player.name }} ({{ player.position }}) - {{ player.overall }}</option>
+          {% endfor %}
+        </select>
+        <select class="player-on-select" style="flex: 1; padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+          <option value="">Player On</option>
+          {% for player in bench %}
+          <option value="{{ player.id }}">{{ player.name }} ({{ player.position }}) - {{ player.overall }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <select class="player-off-select" style="flex: 1; padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+          <option value="">Player Off</option>
+          {% for player in starting_11 %}
+          <option value="{{ player.id }}">{{ player.name }} ({{ player.position }}) - {{ player.overall }}</option>
+          {% endfor %}
+        </select>
+        <select class="player-on-select" style="flex: 1; padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+          <option value="">Player On</option>
+          {% for player in bench %}
+          <option value="{{ player.id }}">{{ player.name }} ({{ player.position }}) - {{ player.overall }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <select class="player-off-select" style="flex: 1; padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+          <option value="">Player Off</option>
+          {% for player in starting_11 %}
+          <option value="{{ player.id }}">{{ player.name }} ({{ player.position }}) - {{ player.overall }}</option>
+          {% endfor %}
+        </select>
+        <select class="player-on-select" style="flex: 1; padding: 8px; background: #0d1117; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+          <option value="">Player On</option>
+          {% for player in bench %}
+          <option value="{{ player.id }}">{{ player.name }} ({{ player.position }}) - {{ player.overall }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <button id="continue-btn" style="background: var(--accent-color); color: #000; padding: 10px 20px; border: none; font-weight: bold; border-radius: 4px; font-size: 1.1rem; cursor: pointer; margin-top: 15px; width: 100%;">Continue Match</button>
+  </div>
+</div>
+
+<!-- Full Time Overlay -->
+<div id="fulltime-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+  <div class="card" style="width: 500px; max-width: 90%; text-align: center;">
+    <h2 style="color: var(--accent-color); font-size: 2.5rem;">Match Completed!</h2>
+    <div id="fulltime-score" style="font-size: 3rem; margin: 10px 0; font-family: var(--font-stats);">0 - 0</div>
+    <p>The final whistle has blown.</p>
+    <button onclick="window.location.href='/'" style="background: var(--accent-color); color: #000; padding: 10px 20px; border: none; font-weight: bold; border-radius: 4px; font-size: 1.3rem; cursor: pointer; margin-top: 15px; width: 100%;">Return to Dashboard</button>
+  </div>
+</div>
+
+<style>
+  #tactics-overlay {
+    display: none !important;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+  }
+  #tactics-overlay.active { display: flex !important; }
+
+  #fulltime-overlay {
+    display: none !important;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  #fulltime-overlay.active { display: flex !important; }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  
+  .commentary-event {
+    background: rgba(255,255,255,0.05);
+    padding: 10px;
+    border-radius: 4px;
+    border-left: 3px solid var(--border-color);
+  }
+  
+  .event-goal {
+    border-left-color: var(--accent-color);
+    background: rgba(0, 255, 135, 0.1);
+  }
+  
+  .event-yellow { border-left-color: #ffd700; }
+  .event-red { border-left-color: #ff4444; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LEAGUE_STYLES = {
+    'Premier League': {
+        bg: '#37003c',
+        accent: '#00ff85',
+        textColor: '#ffffff',
+        fontFamily: 'Arial Black, sans-serif',
+        logo: 'PL',
+        logoBg: '#00ff85',
+        logoColor: '#37003c'
+    },
+    'La Liga': {
+        bg: '#ff4b44',
+        accent: '#ffffff', 
+        textColor: '#ffffff',
+        fontFamily: 'Arial Black, sans-serif',
+        logo: 'LA LIGA',
+        logoBg: '#ff4b44',
+        logoColor: '#ffffff'
+    },
+    'Serie A': {
+        bg: '#00529f',
+        accent: '#e8251f',
+        textColor: '#ffffff',
+        fontFamily: 'Arial Black, sans-serif',
+        logo: 'SERIE A',
+        logoBg: '#e8251f',
+        logoColor: '#ffffff'
+    },
+    'Bundesliga': {
+        bg: '#d3010c',
+        accent: '#ffffff',
+        textColor: '#ffffff',
+        fontFamily: 'Arial Black, sans-serif',
+        logo: 'BL',
+        logoBg: '#d3010c',
+        logoColor: '#ffffff'
+    },
+    'Ligue 1': {
+        bg: '#14082a',
+        accent: '#daa520',
+        textColor: '#ffffff',
+        fontFamily: 'Arial Black, sans-serif',
+        logo: 'L1',
+        logoBg: '#daa520',
+        logoColor: '#14082a'
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Scoreboard styling
+    const leagueName = "{{ match.home_club.league }}";
+    const style = LEAGUE_STYLES[leagueName] || LEAGUE_STYLES['Premier League'];
+    
+    // Apply styles dynamically to scoreboard
+    const scoreboard = document.getElementById('scoreboard');
+    scoreboard.style.background = style.bg;
+    scoreboard.style.fontFamily = style.fontFamily;
+    scoreboard.style.color = style.textColor;
+    
+    document.getElementById('league-bar').style.background = style.accent;
+    document.getElementById('league-bar').style.color = style.logoBg === style.accent ? style.logoColor : style.bg;
+    const matchId = parseInt("{{ match.id }}");
+    let displayMinute = 0;
+    let lastShownMinute = -1;
+    let matchRunning = false;
+    let clockInterval = null;
+    let pollInterval = null;
+    let halftimeDone = false;
+    let sixtyDone = false;
+    let fullTimeDone = false;
+
+    function startClock() {
+        clockInterval = setInterval(function() {
+            if (!matchRunning) return;
+            displayMinute++;
+            updateClock(displayMinute);
+
+            // --- HALFTIME at 45 ---
+            if (displayMinute >= 45 && !halftimeDone) {
+                halftimeDone = true;
+                pauseMatch('Half Time');
+                return;
+            }
+
+            // --- 60-MIN TACTICAL BREAK ---
+            if (displayMinute >= 60 && !sixtyDone) {
+                sixtyDone = true;
+                pauseMatch('60 Minutes');
+                return;
+            }
+
+            // --- FULL TIME ---
+            if (displayMinute >= 90 && !fullTimeDone) {
+                fullTimeDone = true;
+                clearInterval(clockInterval);
+                clearInterval(pollInterval);
+                matchRunning = false;
+                showFullTime();
+            }
+        }, 1500);
+    }
+
+    function startPoll() {
+        pollInterval = setInterval(pollMatch, 1500);
+    }
+
+    function pauseMatch(label) {
+        clearInterval(clockInterval);
+        clearInterval(pollInterval);
+        matchRunning = false;
+        if (label === 'Half Time') addCommentary('🔔 HALF TIME!');
+        else addCommentary('⏱️ Tactical break at ' + label);
+        setTimeout(function() {
+            showTacticsPanel(label);
+        }, 400);
+    }
+
+    // Start match on load
+    fetch('/match/' + matchId + '/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'started') {
+            matchRunning = true;
+            addCommentary('⚽ KICKOFF! The match has begun!');
+            startClock();
+            startPoll();
+            // Start game loop
+            requestAnimationFrame(gameLoop);
+        } else {
+            addCommentary('⚠️ Could not start match: ' + (data.error || 'unknown error'));
+        }
+    })
+    .catch(err => {
+        addCommentary('❌ Error starting match: ' + err);
+    });
+
+    // ---- CANVAS SETUP ----
+    const canvas = document.getElementById('pitch');
+    if(!canvas) { console.error('Canvas not found'); return; }
+    const ctx = canvas.getContext('2d');
+    
+    // ---- FORMATION POSITIONS ----
+    const FORMATIONS = {
+        '4-3-3': [
+            {x:0.06,y:0.50},
+            {x:0.22,y:0.20},{x:0.22,y:0.38},
+            {x:0.22,y:0.62},{x:0.22,y:0.80},
+            {x:0.42,y:0.25},{x:0.42,y:0.50},{x:0.42,y:0.75},
+            {x:0.62,y:0.15},{x:0.62,y:0.50},{x:0.62,y:0.85}
+        ],
+        '4-4-2': [
+            {x:0.06,y:0.50},
+            {x:0.22,y:0.20},{x:0.22,y:0.38},
+            {x:0.22,y:0.62},{x:0.22,y:0.80},
+            {x:0.42,y:0.20},{x:0.42,y:0.40},
+            {x:0.42,y:0.60},{x:0.42,y:0.80},
+            {x:0.62,y:0.35},{x:0.62,y:0.65}
+        ],
+        '4-2-3-1': [
+            {x:0.06,y:0.50},
+            {x:0.22,y:0.20},{x:0.22,y:0.38},
+            {x:0.22,y:0.62},{x:0.22,y:0.80},
+            {x:0.36,y:0.35},{x:0.36,y:0.65},
+            {x:0.52,y:0.20},{x:0.52,y:0.50},{x:0.52,y:0.80},
+            {x:0.66,y:0.50}
+        ],
+        '3-5-2': [
+            {x:0.06,y:0.50},
+            {x:0.22,y:0.28},{x:0.22,y:0.50},{x:0.22,y:0.72},
+            {x:0.38,y:0.10},{x:0.38,y:0.30},
+            {x:0.38,y:0.50},{x:0.38,y:0.70},{x:0.38,y:0.90},
+            {x:0.60,y:0.35},{x:0.60,y:0.65}
+        ],
+        '5-3-2': [
+            {x:0.06,y:0.50},
+            {x:0.20,y:0.10},{x:0.20,y:0.30},
+            {x:0.20,y:0.50},{x:0.20,y:0.70},{x:0.20,y:0.90},
+            {x:0.42,y:0.25},{x:0.42,y:0.50},{x:0.42,y:0.75},
+            {x:0.62,y:0.35},{x:0.62,y:0.65}
+        ]
+    };
+    
+    const formation = "{{ session.get('formation', '4-3-3') }}";
+    const formPos = FORMATIONS[formation] || FORMATIONS['4-3-3'];
+    
+    // Team colors
+    const TEAM_COLORS = {
+        // Premier League
+        'Arsenal': { home: '#EF0107', away: '#063672' },
+        'Manchester City': { home: '#6CABDD', away: '#1C2C5B' },
+        'Manchester United': { home: '#DA291C', away: '#000000' },
+        'Liverpool': { home: '#C8102E', away: '#00A398' },
+        'Chelsea': { home: '#034694', away: '#EE242C' },
+        'Tottenham': { home: '#132257', away: '#FFFFFF' },
+        'Newcastle': { home: '#241F20', away: '#41B0E4' },
+        'Aston Villa': { home: '#95BFE5', away: '#670E36' },
+        'Brighton': { home: '#0057B8', away: '#FFCD00' },
+        'West Ham': { home: '#7A263A', away: '#1BB1E7' },
+        'Wolves': { home: '#FDB913', away: '#231F20' },
+        'Crystal Palace': { home: '#1B458F', away: '#C4122E' },
+        'Fulham': { home: '#FFFFFF', away: '#CC0000' },
+        'Brentford': { home: '#E30613', away: '#FFFFFF' },
+        'Everton': { home: '#003399', away: '#FFFFFF' },
+        'Nottingham Forest': { home: '#DD0000', away: '#FFFFFF' },
+        'Bournemouth': { home: '#DA291C', away: '#000000' },
+        'Leicester City': { home: '#003090', away: '#FDBE11' },
+        'Southampton': { home: '#D71920', away: '#130C0E' },
+        'Ipswich Town': { home: '#0044A9', away: '#FFFFFF' },
+    
+        // La Liga
+        'Real Madrid': { home: '#FFFFFF', away: '#00529F' },
+        'Barcelona': { home: '#A50044', away: '#004D98' },
+        'Atletico Madrid': { home: '#CB3524', away: '#FFFFFF' },
+        'Athletic Club': { home: '#EE2523', away: '#FFFFFF' },
+        'Real Sociedad': { home: '#0067B1', away: '#FFFFFF' },
+        'Real Betis': { home: '#00954C', away: '#FFFFFF' },
+        'Villarreal': { home: '#FFE000', away: '#004B93' },
+        'Valencia': { home: '#FFFFFF', away: '#FF7F00' },
+        'Sevilla': { home: '#FFFFFF', away: '#D70025' },
+        'Girona': { home: '#CC0000', away: '#FFFFFF' },
+        'Osasuna': { home: '#CC0000', away: '#003DA5' },
+        'Mallorca': { home: '#CC0000', away: '#FFFFFF' },
+        'Alaves': { home: '#1F4497', away: '#FFFFFF' },
+        'Celta Vigo': { home: '#6CB4E4', away: '#FFFFFF' },
+        'Getafe': { home: '#005999', away: '#FFFFFF' },
+        'Rayo Vallecano': { home: '#FFFFFF', away: '#CC0000' },
+        'Las Palmas': { home: '#FFDD00', away: '#0033A0' },
+        'Leganes': { home: '#003DA5', away: '#FFFFFF' },
+        'Espanyol': { home: '#0070B8', away: '#FFFFFF' },
+        'Real Valladolid': { home: '#6B2FA0', away: '#FFFFFF' },
+    
+        // Serie A
+        'Inter Milan': { home: '#010E80', away: '#000000' },
+        'Juventus': { home: '#000000', away: '#FFFFFF' },
+        'AC Milan': { home: '#FB090B', away: '#000000' },
+        'Roma': { home: '#8B0000', away: '#FFFF00' },
+        'Lazio': { home: '#87CEEB', away: '#FFFFFF' },
+        'Napoli': { home: '#12A0C7', away: '#FFFFFF' },
+        'Atalanta': { home: '#1C4E9D', away: '#000000' },
+        'Fiorentina': { home: '#4B0082', away: '#FFFFFF' },
+        'Torino': { home: '#8B0000', away: '#FFFFFF' },
+        'Bologna': { home: '#CC0000', away: '#003DA5' },
+        'Monza': { home: '#CC0000', away: '#FFFFFF' },
+        'Genoa': { home: '#CC0000', away: '#003DA5' },
+        'Lecce': { home: '#FFD700', away: '#CC0000' },
+        'Cagliari': { home: '#CC0000', away: '#003DA5' },
+        'Hellas Verona': { home: '#FFD700', away: '#003DA5' },
+        'Udinese': { home: '#FFFFFF', away: '#000000' },
+        'Empoli': { home: '#0070B8', away: '#FFFFFF' },
+        'Parma': { home: '#FFD700', away: '#003DA5' },
+        'Como': { home: '#003DA5', away: '#FFFFFF' },
+        'Venezia': { home: '#FF5F00', away: '#003DA5' },
+    
+        // Bundesliga
+        'Bayern Munich': { home: '#DC052D', away: '#0066B2' },
+        'Bayer Leverkusen': { home: '#E32221', away: '#000000' },
+        'Borussia Dortmund': { home: '#FDE100', away: '#000000' },
+        'RB Leipzig': { home: '#CC0000', away: '#FFFFFF' },
+        'Eintracht Frankfurt': { home: '#E1000F', away: '#000000' },
+        'Wolfsburg': { home: '#65B32E', away: '#FFFFFF' },
+        'Freiburg': { home: '#CC0000', away: '#000000' },
+        'Borussia Monchengladbach': { home: '#000000', away: '#FFFFFF' },
+        'Union Berlin': { home: '#CC0000', away: '#FFFFFF' },
+        'Mainz': { home: '#CC0000', away: '#FFFFFF' },
+        'Bochum': { home: '#003DA5', away: '#FFFFFF' },
+        'Augsburg': { home: '#BA3733', away: '#007236' },
+        'Cologne': { home: '#CC0000', away: '#FFFFFF' },
+        'Stuttgart': { home: '#CC0000', away: '#FFFFFF' },
+        'Hoffenheim': { home: '#1961AC', away: '#FFFFFF' },
+        'Werder Bremen': { home: '#1D9053', away: '#FFFFFF' },
+        'Heidenheim': { home: '#CC0000', away: '#003DA5' },
+        'Holstein Kiel': { home: '#CC0000', away: '#003DA5' },
+    
+        // Ligue 1
+        'PSG': { home: '#004170', away: '#DA291C' },
+        'Monaco': { home: '#CC0000', away: '#FFFFFF' },
+        'Brest': { home: '#CC0000', away: '#FFFFFF' },
+        'Lille': { home: '#CC0000', away: '#003DA5' },
+        'Lyon': { home: '#FFFFFF', away: '#003DA5' },
+        'Lens': { home: '#FFD700', away: '#CC0000' },
+        'Marseille': { home: '#009BDF', away: '#FFFFFF' },
+        'Nice': { home: '#000000', away: '#CC0000' },
+        'Rennes': { home: '#CC0000', away: '#000000' },
+        'Nantes': { home: '#FFD700', away: '#003DA5' },
+        'Strasbourg': { home: '#003DA5', away: '#FFFFFF' },
+        'Reims': { home: '#CC0000', away: '#FFFFFF' },
+        'Montpellier': { home: '#FF7F00', away: '#003DA5' },
+        'Toulouse': { home: '#4B0082', away: '#FFFFFF' },
+        'Auxerre': { home: '#003DA5', away: '#FFFFFF' },
+        'Le Havre': { home: '#003DA5', away: '#FFFFFF' },
+        'Angers': { home: '#000000', away: '#FFFFFF' },
+        'Saint-Etienne': { home: '#007236', away: '#FFFFFF' },
+    };
+    
+    // Get colors for this match
+    const homeClub = "{{ match.home_club.name }}";
+    const awayClub = "{{ match.away_club.name }}";
+    
+    const homeTeamData = TEAM_COLORS[homeClub] || { home: '#0066CC', away: '#CC6600' };
+    const awayTeamData = TEAM_COLORS[awayClub] || { home: '#CC0000', away: '#00CC66' };
+    
+    // Check if colors are too similar (both white or both same)
+    // If clash, use away kit for away team
+    function colorDistance(hex1, hex2) {
+        if (!hex1 || !hex2 || typeof hex1 !== 'string' || typeof hex2 !== 'string') return 1000;
+        const h1 = hex1.replace('#', '');
+        const h2 = hex2.replace('#', '');
+        if (h1.length !== 6 || h2.length !== 6) return 1000;
+        
+        const r1 = parseInt(h1.slice(0,2),16);
+        const g1 = parseInt(h1.slice(2,4),16);
+        const b1 = parseInt(h1.slice(4,6),16);
+        const r2 = parseInt(h2.slice(0,2),16);
+        const g2 = parseInt(h2.slice(2,4),16);
+        const b2 = parseInt(h2.slice(4,6),16);
+        return Math.sqrt(
+            Math.pow(r1-r2,2) + 
+            Math.pow(g1-g2,2) + 
+            Math.pow(b1-b2,2)
+        );
+    }
+    
+    const sessionHomeColor = "{{ session.get('home_kit_color', '') }}";
+    const sessionAwayColor = "{{ session.get('away_kit_color', '') }}";
+    
+    // Home team always plays in home kit (or assigned custom kit)
+    const baseHomeColor = sessionHomeColor ? sessionHomeColor : homeTeamData.home;
+    const homeColor = baseHomeColor;
+    
+    // Away team: use home kit unless it clashes with home team (or assigned custom kit)
+    let awayColor;
+    if (sessionAwayColor) {
+        awayColor = sessionAwayColor;
+    } else {
+        if(colorDistance(baseHomeColor, awayTeamData.home) < 100) {
+            // Kits clash - use away kit
+            awayColor = awayTeamData.away;
+        } else {
+            awayColor = awayTeamData.home;
+        }
+        
+        // If away kit is also white and home is white, force a color
+        if(homeColor.toUpperCase() === '#FFFFFF' && awayColor.toUpperCase() === '#FFFFFF') {
+            awayColor = awayTeamData.away || '#CC0000';
+        }
+    }
+    
+    // ---- INITIALIZE PLAYERS ----
+    let homePlayers = formPos.map((pos, i) => ({
+        x: pos.x * canvas.width,
+        y: pos.y * canvas.height,
+        baseX: pos.x * canvas.width,
+        baseY: pos.y * canvas.height,
+        number: i + 1
+    }));
+    
+    let awayPlayers = formPos.map((pos, i) => ({
+        x: (1 - pos.x) * canvas.width,
+        y: pos.y * canvas.height,
+        baseX: (1 - pos.x) * canvas.width,
+        baseY: pos.y * canvas.height,
+        number: i + 1
+    }));
+    
+    // ---- BALL ----
+    let ball = { 
+        x: canvas.width / 2, 
+        y: canvas.height / 2 
+    };
+    
+    // ---- POSSESSION ----
+    let ballHolder = { team: 'home', playerIndex: 5 };
+    let passTimer = 0;
+    let passInterval = 60;
+    
+    // ---- DRAW FUNCTIONS ----
+    function drawPitch() {
+        // Grass
+        ctx.fillStyle = '#2d5a1b';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Stripes
+        for(let i = 0; i < 8; i++) {
+            if(i % 2 === 0) {
+                ctx.fillStyle = 'rgba(0,0,0,0.08)';
+                ctx.fillRect(
+                    i * canvas.width/8, 0, 
+                    canvas.width/8, canvas.height
+                );
+            }
+        }
+        
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.lineWidth = 2;
+        
+        // Boundary
+        ctx.strokeRect(
+            40, 30, 
+            canvas.width-80, canvas.height-60
+        );
+        
+        // Center line
+        ctx.beginPath();
+        ctx.moveTo(canvas.width/2, 30);
+        ctx.lineTo(canvas.width/2, canvas.height-30);
+        ctx.stroke();
+        
+        // Center circle
+        ctx.beginPath();
+        ctx.arc(
+            canvas.width/2, canvas.height/2, 
+            60, 0, Math.PI*2
+        );
+        ctx.stroke();
+        
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(
+            canvas.width/2, canvas.height/2, 
+            4, 0, Math.PI*2
+        );
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fill();
+        
+        // Penalty areas
+        ctx.strokeRect(40, canvas.height/2-90, 110, 180);
+        ctx.strokeRect(
+            canvas.width-150, canvas.height/2-90, 
+            110, 180
+        );
+        
+        // Goal areas
+        ctx.strokeRect(40, canvas.height/2-40, 40, 80);
+        ctx.strokeRect(
+            canvas.width-80, canvas.height/2-40, 
+            40, 80
+        );
+        
+        // Goals
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(20, canvas.height/2-30, 20, 60);
+        ctx.fillRect(
+            canvas.width-40, canvas.height/2-30, 
+            20, 60
+        );
+    }
+    
+    function drawPlayers() {
+        function drawDot(p, color, isHome) {
+            // Shadow
+            ctx.beginPath();
+            ctx.arc(p.x+2, p.y+2, 10, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fill();
+            
+            // Player circle
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 10, 0, Math.PI*2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Border - dark for light colors, white for dark colors
+            const ucColor = (color || '').toUpperCase();
+            const isLightColor = ucColor === '#FFFFFF' || 
+                ucColor === '#FFD700' || ucColor === '#FDE100' || 
+                ucColor === '#FFFF00' || ucColor === '#FFE000';
+            ctx.strokeStyle = isLightColor ? '#333333' : '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Number - dark for light kits, white for dark kits
+            ctx.fillStyle = isLightColor ? '#000000' : '#ffffff';
+            ctx.font = 'bold 8px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(p.number, p.x, p.y);
+        }
+        
+        homePlayers.forEach(p => drawDot(p, homeColor, true));
+        awayPlayers.forEach(p => drawDot(p, awayColor, false));
+    }
+    
+    function drawBall() {
+        // Shadow
+        ctx.beginPath();
+        ctx.ellipse(
+            ball.x+2, ball.y+3, 
+            7, 5, 0, 0, Math.PI*2
+        );
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fill();
+        
+        // Ball
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, 6, 0, Math.PI*2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        
+        // Center mark
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, 2, 0, Math.PI*2);
+        ctx.fillStyle = '#333333';
+        ctx.fill();
+    }
+    
+    // ---- MOVEMENT ----
+    function updateMovement() {
+        const holders = ballHolder.team === 'home' ? 
+            homePlayers : awayPlayers;
+        const others = ballHolder.team === 'home' ? 
+            awayPlayers : homePlayers;
+        
+        holders.forEach((p, i) => {
+            if(i === ballHolder.playerIndex) {
+                // Ball carrier moves toward opponent goal
+                const goalX = ballHolder.team === 'home' ? 
+                    canvas.width * 0.75 : canvas.width * 0.25;
+                p.x += (goalX - p.x) * 0.02 + 
+                    (Math.random()-0.5) * 2;
+                p.y += (p.baseY - p.y) * 0.03 + 
+                    (Math.random()-0.5) * 2;
+            } else {
+                // Teammates support
+                p.x += (p.baseX - p.x) * 0.03 + 
+                    (Math.random()-0.5) * 1.5;
+                p.y += (p.baseY - p.y) * 0.03 + 
+                    (Math.random()-0.5) * 1.5;
+            }
+            p.x = Math.max(45, Math.min(canvas.width-45, p.x));
+            p.y = Math.max(35, Math.min(canvas.height-35, p.y));
+        });
+        
+        others.forEach(p => {
+            // Defenders press toward ball
+            if(p.number > 4) {
+                p.x += (ball.x - p.x) * 0.01 + 
+                    (p.baseX - p.x) * 0.02;
+                p.y += (ball.y - p.y) * 0.01 + 
+                    (p.baseY - p.y) * 0.02;
+            } else {
+                p.x += (p.baseX - p.x) * 0.04;
+                p.y += (p.baseY - p.y) * 0.04;
+            }
+            p.x = Math.max(45, Math.min(canvas.width-45, p.x));
+            p.y = Math.max(35, Math.min(canvas.height-35, p.y));
+        });
+        
+        // Ball follows holder
+        const holder = holders[ballHolder.playerIndex];
+        if(holder) {
+            ball.x += (holder.x - ball.x) * 0.2;
+            ball.y += (holder.y - ball.y) * 0.2;
+        }
+        
+        // Passing
+        passTimer++;
+        if(passTimer >= passInterval) {
+            passTimer = 0;
+            passInterval = 40 + Math.floor(Math.random() * 70);
+            
+            // 15% turnover chance
+            if(Math.random() < 0.15) {
+                ballHolder.team = ballHolder.team === 
+                    'home' ? 'away' : 'home';
+                ballHolder.playerIndex = 
+                    3 + Math.floor(Math.random() * 5);
+            } else {
+                ballHolder.playerIndex = 
+                    1 + Math.floor(Math.random() * 10);
+            }
+        }
+    }
+    
+    // ---- GOAL FLASH ----
+    window.animateGoal = function(team) {
+        const flash = document.getElementById('goal-flash');
+        if(flash) {
+            flash.style.display = 'flex';
+            setTimeout(() => { 
+                flash.style.display = 'none'; 
+            }, 2000);
+        }
+        // Reset ball to center
+        setTimeout(() => {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ballHolder = { team: 'home', playerIndex: 5 };
+        }, 2500);
+    };
+    
+    window.animateAttack = function(team) {
+        ballHolder.team = team;
+        ballHolder.playerIndex = 
+            8 + Math.floor(Math.random() * 3);
+    };
+    
+    // ---- GAME LOOP ----
+    function gameLoop() {
+        updateMovement();
+        drawPitch();
+        drawPlayers();
+        drawBall();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    // Start immediately
+    gameLoop();
+    console.log('Canvas game loop started successfully');
+
+    // ---- Polling ----
+    function pollMatch() {
+        fetch('/match/' + matchId + '/poll')
+        .then(r => r.json())
+        .then(data => {
+            data.events.forEach(function(event) {
+                if (event.minute <= displayMinute && event.minute > lastShownMinute) {
+                    handleEvent(event);
+                }
+            });
+            lastShownMinute = displayMinute;
+        })
+        .catch(err => console.log('Poll error:', err));
+    }
+
+    function handleEvent(event) {
+        if(event.type === 'goal') {
+            document.getElementById('score-home').textContent = event.score_home;
+            document.getElementById('score-away').textContent = event.score_away;
+            animateGoal(event.team);
+            addCommentary('⚽ ' + event.minute + '\' GOAL! ' + event.player + '! ' + event.description);
+        } else if(event.type === 'chance') {
+            animateAttack(event.team || (Math.random()>0.5?'home':'away'));
+            addCommentary('💨 ' + event.minute + '\' Close chance! ' + event.player + ' goes close!');
+        } else if(event.type === 'yellow_card') {
+            addCommentary('🟨 ' + event.minute + '\' Yellow card - ' + event.player);
+        } else if(event.type === 'red_card') {
+            addCommentary('🟥 ' + event.minute + '\' RED CARD! ' + event.player + ' is sent off!');
+        } else if(event.type === 'substitution') {
+            addCommentary('🔄 ' + event.minute + '\' SUB: ' + event.player_off + ' off, ' + event.player_on + ' on');
+        }
+    }
+
+    function updateClock(minute) {
+        const m = Math.min(minute, 90);
+        document.getElementById('match-clock').textContent = String(m).padStart(2, '0') + ':00';
+    }
+
+    function addCommentary(text) {
+        const box = document.getElementById('commentary-box');
+        const p = document.createElement('p');
+        p.style.cssText = 'color:#00ff87;margin:4px 0;font-family:IBM Plex Mono,monospace;font-size:13px;';
+        p.textContent = text;
+        box.insertBefore(p, box.firstChild);
+    }
+
+    // --- Continue Match button: one listener attached once at startup ---
+    document.getElementById('continue-btn').addEventListener('click', function() {
+        // Collect substitutions
+        const offSelects = document.querySelectorAll('.player-off-select');
+        const onSelects  = document.querySelectorAll('.player-on-select');
+        const subs = [];
+        offSelects.forEach(function(offSel, i) {
+            const onSel = onSelects[i];
+            if (offSel.value && onSel.value) {
+                const offName = offSel.options[offSel.selectedIndex].text;
+                const onName  = onSel.options[onSel.selectedIndex].text;
+                subs.push({ player_off_id: offSel.value, player_on_id: onSel.value });
+                addCommentary('🔄 SUB: ' + offName + ' off, ' + onName + ' on');
+                offSel.value = ''; onSel.value = '';
+            }
+        });
+        if (subs.length > 0) {
+            fetch('/match/' + matchId + '/substitution', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({substitutions: subs})
+            }).catch(err => console.log('Sub error:', err));
+        }
+
+        // Hide overlay
+        document.getElementById('tactics-overlay').classList.remove('active');
+        // Resume match
+        matchRunning = true;
+        clearInterval(clockInterval);
+        clearInterval(pollInterval);
+        clockInterval = setInterval(function() {
+            if (!matchRunning) return;
+            displayMinute++;
+            updateClock(displayMinute);
+            if (displayMinute >= 90 && !fullTimeDone) {
+                fullTimeDone = true;
+                clearInterval(clockInterval);
+                clearInterval(pollInterval);
+                matchRunning = false;
+                showFullTime();
+            }
+        }, 1500);
+        pollInterval = setInterval(pollMatch, 1500);
+    });
+
+    function showTacticsPanel(title) {
+        document.getElementById('tactics-title').textContent = title + ' - Make Changes';
+        document.getElementById('tactics-overlay').classList.add('active');
+    }
+
+    function showFullTime() {
+        addCommentary('🏁 FULL TIME! Match Over!');
+        const home = document.getElementById('score-home').textContent;
+        const away = document.getElementById('score-away').textContent;
+        document.getElementById('fulltime-score').textContent = home + ' - ' + away;
+        document.getElementById('fulltime-overlay').classList.add('active');
+
+        fetch('/match/' + matchId + '/finish', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                score_home: parseInt(home) || 0,
+                score_away: parseInt(away) || 0
+            })
+        }).catch(err => console.log('Finish error:', err));
+    }
+});
+</script>
+{% endblock %}
+

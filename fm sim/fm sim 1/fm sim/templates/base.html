@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{% block title %}FM Sim 25/26{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+      /* Ensure the text and dynamic hover effects pop here */
+      body {
+        margin: 0;
+        font-family: var(--font-stats);
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        display: flex;
+        min-height: 100vh;
+      }
+      .fm-sidebar {
+        width: 250px;
+        background-color: var(--card-bg);
+        border-right: 1px solid var(--border-color);
+        padding: 20px 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .fm-logo {
+        text-align: center;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px;
+      }
+      .fm-logo h2 {
+        color: var(--accent-color);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin: 0;
+        text-shadow: 0 0 10px rgba(0,255,135,0.4);
+      }
+      .fm-nav {
+        display: flex;
+        flex-direction: column;
+      }
+      .fm-nav a {
+        padding: 15px 30px;
+        color: var(--text-color);
+        text-decoration: none;
+        font-family: var(--font-heading);
+        font-size: 1.2rem;
+        font-weight: 600;
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease;
+      }
+      .fm-nav a:hover, .fm-nav a.active {
+        background-color: rgba(0, 255, 135, 0.1);
+        color: var(--accent-color);
+        border-left-color: var(--accent-color);
+      }
+      .fm-main {
+        flex-grow: 1;
+        padding: 30px;
+        box-sizing: border-box;
+        overflow-y: auto;
+      }
+      .fm-header {
+        margin-bottom: 30px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+      }
+      .fm-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="fm-sidebar">
+      <div class="fm-logo">
+        <h2>FM Sim 25/26</h2>
+      </div>
+      <nav class="fm-nav">
+        <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('main.squad') }}">Squad</a>
+        <a href="{{ url_for('main.tactics') }}">Tactics</a>
+        <a href="{{ url_for('main.transfers') }}">Transfers</a>
+        <a href="{{ url_for('main.fixtures') }}">Fixtures</a>
+        <a href="{{ url_for('main.league') }}">League Table</a>
+        <a href="{{ url_for('main.finances') }}">Finances</a>
+        <a href="{{ url_for('main.inbox') }}" style="display: flex; justify-content: space-between; align-items: center;">
+            Inbox
+            {% if unread_count and unread_count > 0 %}
+            <span id="unread-badge" style="background: #ff4444; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">{{ unread_count }}</span>
+            {% endif %}
+        </a>
+      </nav>
+    </aside>
+    <main class="fm-main">
+      <header class="fm-header">
+        <h1>{% block header %}{% endblock %}</h1>
+      </header>
+      <section class="fm-content">
+        {% block content %}{% endblock %}
+      </section>
+    </main>
+    
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

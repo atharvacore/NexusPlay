@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ club.name }}{% endblock %}
+
+{% block header %}
+<div style="display: flex; justify-content: space-between; align-items: center;">
+  <span>{{ club.name }} - Manager Dashboard</span>
+  <div>
+    <button onclick="window.location.href='/switch-club'" 
+    style="background:#ffd700; color:#000; padding:8px 16px; 
+    border:none; border-radius:4px; font-weight:bold; cursor:pointer;
+    margin-right:10px;">
+    Switch Club
+    </button>
+    <button onclick="confirmNewGame()" 
+    style="background:#ff4444; color:#fff; padding:8px 16px; 
+    border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+    New Game
+    </button>
+  </div>
+</div>
+
+<script>
+function confirmNewGame() {
+    if(confirm('Start completely fresh? This will reset ALL match results, transfers and standings. Are you sure?')) {
+        window.location.href = '/new-game';
+    }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+  <div class="card stat-box">
+    <div class="stat-label">Next Fixture</div>
+    {% if next_fixture %}
+      {% if next_fixture.home_club_id == club.id %}
+        <div class="stat-value text-accent" style="font-size:1.1rem;">{{ next_fixture.away_club.name }}</div>
+        <div style="font-size:0.9rem;">Home · {{ next_fixture.match_date.strftime('%b %d') }}</div>
+      {% else %}
+        <div class="stat-value text-accent" style="font-size:1.1rem;">{{ next_fixture.home_club.name }}</div>
+        <div style="font-size:0.9rem;">Away · {{ next_fixture.match_date.strftime('%b %d') }}</div>
+      {% endif %}
+    {% else %}
+      <div class="stat-value text-accent">-</div>
+      <div style="font-size:0.9rem;">Season Complete</div>
+    {% endif %}
+  </div>
+  <div class="card stat-box">
+    <div class="stat-label">League Position</div>
+    <div class="stat-value text-accent">{{ league_position }}</div>
+    <div style="font-size:0.9rem;">{{ club.league }}</div>
+  </div>
+  <div class="card stat-box">
+    <div class="stat-label">Transfer Budget</div>
+    <div class="stat-value text-accent">€{{ "{:,.0f}".format(club.transfer_budget) }}</div>
+  </div>
+  <div class="card stat-box">
+    <div class="stat-label">Board Confidence</div>
+    <div class="stat-value text-accent">Stable</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Recent Form</h3>
+  {% if recent_form %}
+  <div style="display:flex; gap:8px; margin-bottom:14px;">
+    {% for result in recent_form %}
+      {% if result == 'W' %}
+        <span style="background:#00ff87;color:#000;padding:4px 12px;border-radius:20px;font-weight:bold;">W</span>
+      {% elif result == 'D' %}
+        <span style="background:#ffd700;color:#000;padding:4px 12px;border-radius:20px;font-weight:bold;">D</span>
+      {% else %}
+        <span style="background:#ff4444;color:#fff;padding:4px 12px;border-radius:20px;font-weight:bold;">L</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:#8b949e;">No matches played yet.</p>
+  {% endif %}
+  {% if next_fixture %}
+  <p>Next up: <strong>
+    {% if next_fixture.home_club_id == club.id %}
+      {{ club.name }} vs {{ next_fixture.away_club.name }}
+    {% else %}
+      {{ next_fixture.home_club.name }} vs {{ club.name }} (Away)
+    {% endif %}
+  </strong> ({{ next_fixture.match_date.strftime('%b %d') }})</p>
+  <button style="background: var(--accent-color); color: #000; border: none; padding: 10px 20px; font-weight: bold; font-family: var(--font-heading); font-size: 1.1rem; cursor: pointer; border-radius: 4px; margin-top: 10px;" onclick="window.location.href='{{ url_for('main.match_lineup', match_id=next_fixture.id) }}'">Play Next Match</button>
+  {% else %}
+  <p style="color: var(--accent-color); font-weight: bold; font-size: 1.2rem;">Season Complete!</p>
+  <p>There are no upcoming matches scheduled.</p>
+  {% endif %}
+</div>
+{% endblock %}
